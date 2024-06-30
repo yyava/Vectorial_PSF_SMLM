@@ -24,7 +24,7 @@ if contains(fitModel,'diffusion')
     p.g2 = Theta(8);
 end
 
-[PupilMatrix,dPupilMatrix] = get_pupilMatrix(p);
-[PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix);
+[PupilMatrix,dPupilMatrix,Energy_norm] = get_pupilMatrix(p);
+[PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix,Energy_norm);
 [mu,dmu] = get_mu(p,PSF,dPSF); 
 end

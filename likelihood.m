@@ -34,7 +34,12 @@ for ii = 1:Np
         HessianlogL(jj,ii) = HessianlogL(ii,jj);
     end
 end
-
-
+% 2D localization
+if ~contains(p.fitModel,'xyz')
+    gradlogL(3) = 0;
+    HessianlogL(3,:) = 0;
+    HessianlogL(:,3) = 0;
+    HessianlogL(3,3) = 1;
+end
 
 

@@ -1,4 +1,4 @@
-function [PupilMatrix,dPupilMatrix] = get_pupilMatrix(p)
+function [PupilMatrix,dPupilMatrix,Energy_norm] = get_pupilMatrix(p)
 % This fuction calculates the pupil matrix its derivative
 % Output: 
 %   PupilMatrix size:(Nk,Nk,Nz,Nc,3)
@@ -171,6 +171,17 @@ end
 
 % Pupil matrix (OTF) of the system, the composition of 2 objective's
 PupilMatrix = PupilMatrixA+PupilMatrixB;
+
+% normalized the total energy by in-focus free dipole
+if p.NA>p.n_med
+    PA0 = pupila.*Amplitude.*exp(1i*(-p.fwd*p.kzimmnom+p.zstage*p.kzimm)).*exp(1i*kz*p.depth).*PolaVecA;
+    PB0 = pupilb.*Amplitude.*exp(1i*(-p.fwd*p.kzimmnom+p.zstage*p.kzimm)).*exp(1i*kz*p.depth).*PolaVecB;
+else
+    PA0 = pupila.*Amplitude.*PolaVecA;
+    PB0 = pupilb.*Amplitude.*PolaVecB;
+end
+P0 = PA0+PB0;
+Energy_norm = 1/3*sum(abs(P0).^2,"all");
 
 % spatial derivatives of pupil matrix [dx,dy,dz]
 dPupilMatrix(:,:,:,:,:,1) = 1i*kx.*PupilMatrix;       % dx

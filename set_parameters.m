@@ -7,14 +7,15 @@ p.NA = 1.45;        % numerical aperture
 p.n_med = 1.333;    % refractive indices of medium
 p.n_cov = 1.523;    % refractive indices of coverslip
 p.n_imm = 1.518;    % refractive indices of immersion environment
+% oil: 1.518; air: 1.0
 % nominal refractive index of immersion fluid matching objective lens design
 p.n_immnom = p.n_cov;   
 p.fwd = 120e-6;    % nominal working distance of objective lens
-p.zstage = 118.99e-6;  % (NA=1.45, λ=520, f=200, nomf=700)
+p.zstage = 118.935e-6;  % (NA=1.45, λ=520, f=200, nomf=700)
 p.depth = 200e-9;        % distance of image plane from coverslip
-p.zrange = [-200e-9,200e-9];    % axial range in fitting [min,max]
+p.zrange = [-500e-9,500e-9];    % axial range in fitting [min,max]
 % flag for axial range by z-position in medium or by z-stage position
-p.ztype = 'medium'; %'stage'; 
+p.ztype = 'medium'; %'stage';
 
 % p.lambda = 597.5e-9;   % wavelength
 p.lambda = 520e-9;   % wavelength
@@ -35,7 +36,6 @@ p.cameraSize = 6.5e-6;  % pixel size of camera is 6.5 um
 
 % Image plane: x, y direction (same pixel size in x and y)
 p.Dx = p.cameraSize/p.magObj;   % image pixel size
-% p.Dx = 65e-9;
 p.Nx = 19;
 % smaller pixel size for plotting PSF images
 % p.Dx = 5e-9;
@@ -48,14 +48,14 @@ p.xl = -(p.Lx-p.Dx)/2:p.Dx:(p.Lx-p.Dx)/2;   % coordinate array
 p.kmax = p.NA*p.k0;     % maximum angular frquency
 p.Nk = 32;      % sampling number in pupil plane
 % smaller pixel size for plotting pupil images
-% p.Nk = 256;   % 
+% p.Nk = 256;   % 400 for plotting pupil function
 p.Dk = p.kmax*2/p.Nk;
 p.kl = -(p.Nk-1)/2*p.Dk:p.Dk:(p.Nk-1)/2*p.Dk;    % size:(1,Nk)
 [p.kx, p.ky] = meshgrid(p.kl,p.kl); % size:(Nk,Nk)
 p.kr = sqrt(p.kx.^2+p.ky.^2);       % size:(Nk,Nk)
 p.kz = sqrt(p.n_med^2*p.k0^2-p.kr.^2);      % wave vector z; size:(Nk,Nk)
 p.kzimm = sqrt(p.n_imm^2*p.k0^2-p.kr.^2);   % wave vector in immersion fluid
-p.kzimmnom = sqrt(p.n_immnom^2*p.k0^2-p.kr.^2);
+p.kzimmnom = sqrt(p.n_immnom^2*p.k0^2-p.kr.^2); 
 p.phi = atan2(p.ky,p.kx);           % azimuth; size:(Nk,Nk)
 
 % z direction
@@ -66,7 +66,8 @@ p.Lz = 400e-9;
 p.Dz = 5e-9;
 p.Nz = round(p.Lz/p.Dz+1);
 p.zl = -p.Lz/2:p.Dz:p.Lz/2;
-% p.zl = 0:p.Dz:p.Lz; % half
+% % p.zl = 0:p.Dz:p.Lz; % half
+% p.zl = -200e-9:p.Dz:400e-9;
 
 if p.detection == "zslice"
     p.Nz = 1;
@@ -144,15 +145,16 @@ p.pupilb = p.tb*p.pupilMask.*exp(1i*p.Wb); % coherent OTF of obj.b
 p.fitModel = 'xyz-azim-pola-diffusion'; % difussion dipole
 % p.fitModel = 'xyz-azim-pola'; % fixed dipole
 % p.fitModel = 'xyz';   % free dipole
-if      strcmp(p.fitModel,'xyz')
-    % Theta = [dx,dy,dz,Nph,Nbg]
-    p.Np = 5;
-elseif  strcmp(p.fitModel,'xyz-azim-pola')
-    % Theta = [dx,dy,dz,Nph,Nbg,azim,pola]
-    p.Np = 7;
-elseif  strcmp(p.fitModel,'xyz-azim-pola-diffusion')
+% p.fitModel = 'xy-azim-pola-diffusion';
+if      contains(p.fitModel,'diffusion')
     % Theta = [dx,dy,dz,Nph,Nbg,azim,pola,g2]
     p.Np = 8;
+elseif  contains(p.fitModel,'azim-pola')
+    % Theta = [dx,dy,dz,Nph,Nbg,azim,pola]
+    p.Np = 7;
+else
+    % Theta = [dx,dy,dz,Nph,Nbg]
+    p.Np = 5;
 end
 
 if contains(p.fitModel,'diffusion')

@@ -9,7 +9,7 @@ p.Nbg = 12;
 
 %% CRLB along z: sweeping
 p.polarization = '4EP';
-p.dipoleType = 'diffusion';
+p.dipoleType = 'diffusion';     
 p.DualObj = false;
 p.Vortex = false;
 p.g2 = 0.75;
@@ -19,10 +19,10 @@ p.Excitation = false;
 % sample the polar and azimuthal angle
 
 polal = acosd(0:0.05:0.95);
-% aziml = 2.5:5:90-2.5;
+aziml = 0:5:90-5;
 % specific orientation
 % polal = 45;
-aziml = 45;
+% aziml = 45;
 
 Ncfg = length(polal)*length(aziml);
 
@@ -41,8 +41,8 @@ fprintf('\nStart fitting %i instances:\n',Ncfg); tic;
 for jcfg = 1:Ncfg
     p.azim = Omega1(jcfg)/180*pi;
     p.pola = Omega2(jcfg)/180*pi;
-    [PupilMatrix,dPupilMatrix] = get_pupilMatrix(p);
-    [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix);
+    [PupilMatrix,dPupilMatrix,Energy_norm] = get_pupilMatrix(p);
+    [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix,Energy_norm);
     [mu,dmu] = get_mu(p,PSF,dPSF); 
     [CRLBStore(:,:,jcfg),~] = get_CRLB(p,mu,dmu);
     disp(jcfg)
@@ -59,7 +59,9 @@ sigx = CRLBStore(6,:,:);
 sigy = CRLBStore(7,:,:);
 a = (sigx.^2+sigy.^2)/2+abs((sigx.^2-sigy.^2)/2);
 b = (sigx.^2+sigy.^2)/2-abs((sigx.^2-sigy.^2)/2);
-CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+% CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+[~,Eell] = ellipke(1-b./a);
+CRLBStore(9,:,:) = sqrt(2/pi*a).*Eell;  % Mean Angular Deviation (MAD)
 
 CRLBz = zeros(4,p.Nz);
 CRLBz(1,:) = mean((CRLBStore(1,:,:)+CRLBStore(2,:,:))/2,3);
@@ -76,9 +78,10 @@ CRLBz(4,:) = mean(CRLBStore(8,:,:),3);
 %% CRLB along z: plot one method
 Zl = p.zl*1e9;
 % CRLB x z
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Zl,CRLBz(1,:),'b',Zl,CRLBz(2,:),'r',"LineWidth",1.5)
-% ylim([0,4])
+ylim([0,4])
 grid on
 lgd = legend("$\sigma_x$ (nm)","$\sigma_z$ (nm)");
 lgd.Interpreter = "latex";
@@ -90,12 +93,13 @@ fontsize(gcf,scale=1.8)
 % CRLB angle
 CRLBz(5,:) = mean(CRLBStore(6,:,:),3);
 CRLBz(6,:) = mean(CRLBStore(7,:,:),3);
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Zl,CRLBz(5,:),"Color",[.49,.73,.00],"LineWidth",1.5)
 hold on
 plot(Zl,CRLBz(6,:),"Color",[.00,.63,.95],"LineWidth",1.5)
 plot(Zl,CRLBz(3,:),"Color",[.49,.18,.56],"LineWidth",1.5)
-ylim([0,5])
+ylim([0,4])
 grid on
 lgd = legend("$\sin(\theta_d)\sigma_{\phi_d}\ (^{\circ})$", ...
     "$\sigma_{\theta_d}\ (^{\circ})$","$\bar{\delta}\ (^{\circ})$");
@@ -106,9 +110,12 @@ xlabel('$z$ (nm)','Interpreter','latex')
 ylabel('Angular precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % CRLB g2
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Zl,CRLBz(4,:),"Color",[1 0.5 0],"LineWidth",1.5)
-ylim([0,0.1])
+ylim([0,0.2])
+yticks([0,0.1,0.2])
+% yticklabels(["0"," ","0.1"])
 grid on
 lgd = legend("$\sigma_{g_2}$");
 lgd.Interpreter = "latex";
@@ -120,42 +127,45 @@ fontsize(gcf,scale=1.8)
 %% CRLB along z: plot all methods
 Zl = p.zl*1e9;
 % CRLB x
-figure("Position",[200,200,600,400])
-% hold on
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
 plot(Zl,CRLBz_Vortex(1,:),Zl,CRLBz_CHIDO(1,:), ...
     Zl,CRLBz_raMVR(1,:),Zl,CRLBz_4EP(1,:),"LineWidth",1.5)
-ylim([0,12])
-yticks(0:3:12)
+ylim([0,8])
+yticks(0:2:8)
 grid on
 lgd = legend("Vortex","CHIDO","raMVR","4EP");
 lgd.Interpreter = "latex";
 lgd.Location = "northwest";
 lgd.Box = "off";
 xlabel('$z$ (nm)','Interpreter','latex')
-ylabel('$\sigma_x$ (nm)','Interpreter','latex')
+ylabel('Lateral precision $\sigma_x$ (nm)','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % CRLB z
-figure("Position",[200,200,600,400])
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
 plot(Zl,CRLBz_Vortex(2,:),Zl,CRLBz_CHIDO(2,:), ...
     Zl,CRLBz_raMVR(2,:),Zl,CRLBz_4EP(2,:),"LineWidth",1.5)
-ylim([0,25])
-yticks(0:5:25)
+ylim([0,20])
+yticks(0:5:20)
 grid on
 xlabel('$z$ (nm)','Interpreter','latex')
-ylabel('$\sigma_z$ (nm)','Interpreter','latex')
+ylabel('Axial precision $\sigma_z$ (nm)','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % CRLB delta
-figure("Position",[200,200,600,400])
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
 plot(Zl,CRLBz_Vortex(3,:),Zl,CRLBz_CHIDO(3,:), ...
     Zl,CRLBz_raMVR(3,:),Zl,CRLBz_4EP(3,:),"LineWidth",1.5)
 ylim([0,8])
 yticks(0:2:8)
 grid on
 xlabel('$z$ (nm)','Interpreter','latex')
-ylabel('$\bar{\delta}\ (^{\circ})$','Interpreter','latex')
+ylabel('Angular precision $\bar{\delta}\ (^{\circ})$','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % CRLB g2
-figure("Position",[200,200,600,400])
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
 plot(Zl,CRLBz_Vortex(4,:),Zl,CRLBz_CHIDO(4,:), ...
     Zl,CRLBz_raMVR(4,:),Zl,CRLBz_4EP(4,:),"LineWidth",1.5)
 
@@ -163,7 +173,7 @@ ylim([0,0.1])
 yticks(0:0.02:0.1)
 grid on
 xlabel('$z$ (nm)','Interpreter','latex')
-ylabel('$\sigma_{g_2}$','Interpreter','latex')
+ylabel('$g_2$ precision $\sigma_{g_2}$','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
 copygraphics(gcf,'ContentType','vector')
@@ -173,17 +183,18 @@ p.detection =  "zslice";
 p.Nz = 1;
 p.zl = 0;   
 
-p.polarization = '4EP';
+p.fitModel = 'xyz-azim-pola-diffusion'; % difussion dipole
+p.polarization = 'CP';
 p.dipoleType = 'diffusion';
-p.DualObj = false;
+p.DualObj = true;
 p.Vortex = false;
 p.g2 = 0.75;
 p.z0 = 0e-9;    % in focus
-p.Excitation = false;
+p.Excitation = true;
 
 polal = acosd(0:0.01:1);
 polal(end) = 1;     % avoid sigularity
-aziml = 2.5:5:90-2.5;   % average
+aziml = 0:5:90-5;   % average
 % aziml = 45;   % used one value when radial symmetry
 
 CRLBStore = zeros(p.Np,length(polal),length(aziml));
@@ -192,8 +203,8 @@ for i=1:length(polal)
     for j=1:length(aziml)
         p.pola = polal(i)/180*pi;
         p.azim = aziml(j)/180*pi;
-        [PupilMatrix,dPupilMatrix] = get_pupilMatrix(p);
-        [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix);
+        [PupilMatrix,dPupilMatrix,Energy_norm] = get_pupilMatrix(p);
+        [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix,Energy_norm);
         [mu,dmu] = get_mu(p,PSF,dPSF); 
         [CRLBStore(:,i,j),~] = get_CRLB(p,mu,dmu);
     end
@@ -209,7 +220,9 @@ sigx = squeeze(CRLBStore(6,:,:));
 sigy = squeeze(CRLBStore(7,:,:));
 a = (sigx.^2+sigy.^2)/2+abs((sigx.^2-sigy.^2)/2);
 b = (sigx.^2+sigy.^2)/2-abs((sigx.^2-sigy.^2)/2);
-CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+% CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+[~,Eell] = ellipke(1-b./a);
+CRLBStore(9,:,:) = sqrt(2/pi*a).*Eell;
 CRLBStore = mean(CRLBStore,3);
 
 % Store data for diff methods
@@ -218,16 +231,23 @@ CRLBStore = mean(CRLBStore,3);
 % CRLBpola_CHIDO = CRLBStore;
 % CRLBpola_raMVR = CRLBStore;
 
+% CRLBStoreN = CRLBStore;
+
 %% CRLB w.r.t polar angle: plot one method
 Xl = 1:length(polal);
 % CRLB x z
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Xl,(CRLBStore(1,:)+CRLBStore(2,:))/2,'b', ...
     Xl,CRLBStore(3,:),'r',"LineWidth",1.5)
+hold on 
+plot(Xl,(CRLBStoreN(1,:)+CRLBStoreN(2,:))/2,'b--', ...
+    Xl,CRLBStoreN(3,:),'r--', ...
+    "LineWidth",1.5)
 xlim([1,101])
-xticks(cosd([90,75,60,45,30,15,1])*100+1)
-xticklabels({'90','75','60','45','30','15  ','1'})
-% ylim([0 4])
+xticks(cosd([90,75,60,45,30,1])*100+1)       
+xticklabels({'90','75','60','45','30','1'})
+ylim([0 4])
 grid on
 lgd = legend('$\sigma_x$ (nm)','$\sigma_z$ (nm)');
 lgd.Interpreter = "latex";
@@ -238,15 +258,21 @@ ylabel('Localization precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
 % CRLB angle
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Xl,CRLBStore(6,:),"Color",[.49,.73,.00],"LineWidth",1.5)
 hold on
 plot(Xl,CRLBStore(7,:),"Color",[.00,.63,.95],"LineWidth",1.5)
 plot(Xl,CRLBStore(9,:),"Color",[.49,.18,.56],"LineWidth",1.5)
+
+plot(Xl,CRLBStoreN(6,:),"--","Color",[.49,.73,.00],"LineWidth",1.5)
+plot(Xl,CRLBStoreN(7,:),"--","Color",[.00,.63,.95],"LineWidth",1.5)
+plot(Xl,CRLBStoreN(9,:),"--","Color",[.49,.18,.56],"LineWidth",1.5)
+
 xlim([1,101])
-xticks(cosd([90,75,60,45,30,15,1])*100+1)
-xticklabels({'90','75','60','45','30','15  ','1'})
-ylim([0,5])
+xticks(cosd([90,75,60,45,30,1])*100+1)
+xticklabels({'90','75','60','45','30','1'})
+ylim([0,15])
 grid on
 lgd = legend("$\sin(\theta_d)\sigma_{\phi_d}\ (^{\circ})$", ...
     "$\sigma_{\theta_d}\ (^{\circ})$","$\bar{\delta}\ (^{\circ})$");
@@ -257,12 +283,19 @@ xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
 ylabel('Angular precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % CRLB g2
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(Xl,CRLBStore(8,:),"Color",[1 0.5 0],"LineWidth",1.5)
+
+hold on
+plot(Xl,CRLBStoreN(8,:),"--","Color",[1 0.5 0],"LineWidth",1.5)
+
 xlim([1,101])
-xticks(cosd([90,75,60,45,30,15,1])*100+1)
-xticklabels({'90','75','60','45','30','15  ','1'})
+xticks(cosd([90,75,60,45,30,1])*100+1)
+xticklabels({'90','75','60','45','30','1'})
 ylim([0,0.1])
+yticks([0,0.05,0.1])
+yticklabels(["0"," ","0.1"])
 grid on
 lgd = legend("$\sigma_{g_2}$");
 lgd.Interpreter = "latex";
@@ -275,9 +308,12 @@ fontsize(gcf,scale=1.8)
 %% CRLB w.r.t polar angle: plot all methods
 Xl = 1:length(polal);
 % CRLB x
-figure("Position",[200,200,600,400])
-plot(Xl,CRLBpola_Vortex(1,:),Xl,CRLBpola_CHIDO(1,:), ...
-    Xl,CRLBpola_raMVR(1,:),Xl,CRLBpola_4EP(1,:),"LineWidth",1.5)
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,(CRLBpola_Vortex(1,:)+CRLBpola_Vortex(2,:))/2,...
+    Xl,(CRLBpola_CHIDO(1,:)+CRLBpola_CHIDO(2,:))/2, ...
+    Xl,(CRLBpola_raMVR(1,:)+CRLBpola_raMVR(2,:))/2,...
+    Xl,(CRLBpola_4EP(1,:)+CRLBpola_4EP(2,:))/2,"LineWidth",1.5)
 xlim([1,101])
 xticks(cosd([90,75,60,45,30,15,1])*100+1)
 xticklabels({'90','75','60','45','30','15  ','1'})
@@ -289,24 +325,95 @@ lgd.Interpreter = "latex";
 lgd.Location = "northwest";
 lgd.Box = "off";
 xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
-ylabel('$\sigma_x$ (nm)','Interpreter','latex')
+ylabel('Lateral precision $\sigma_x$ (nm)','Interpreter','latex')
 fontsize(gcf,scale=1.8)
-% CRLB delta
-figure("Position",[200,200,600,400])
-plot(Xl,CRLBpola_Vortex(6,:),"Color",[.00 .45 .74],"LineWidth",1.5)
-hold on 
-plot(Xl,CRLBpola_CHIDO(6,:),"Color",[.85 .33 .10],"LineWidth",1.5)
-plot(Xl,CRLBpola_raMVR(6,:),"Color",[.93 .69 .13],"LineWidth",1.5)
-plot(Xl,CRLBpola_4EP(6,:),"Color",[.49 .18 .56],"LineWidth",1.5)
+
+copygraphics(gcf,'ContentType','vector')
+
+% CRLB z
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,CRLBpola_Vortex(3,:),Xl,CRLBpola_CHIDO(3,:), ...
+    Xl,CRLBpola_raMVR(3,:),Xl,CRLBpola_4EP(3,:),"LineWidth",1.5)
 xlim([1,101])
 xticks(cosd([90,75,60,45,30,15,1])*100+1)
 xticklabels({'90','75','60','45','30','15  ','1'})
-ylim([0,10])
+ylim([0,30])
 grid on
 xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
-ylabel('$\sin(\theta_d)\sigma_{\phi_d}\ (^{\circ})$','Interpreter','latex')
+ylabel('Axial precision $\sigma_z$ (nm)','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
+copygraphics(gcf,'ContentType','vector')
+
+% CRLB azim
+
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,CRLBpola_Vortex(6,:),Xl,CRLBpola_CHIDO(6,:), ...
+    Xl,CRLBpola_raMVR(6,:),Xl,CRLBpola_4EP(6,:),"LineWidth",1.5)
+xlim([1,101])
+xticks(cosd([90,75,60,45,30,15,1])*100+1)
+xticklabels({'90','75','60','45','30','15  ','1'})
+ylim([0,8])
+grid on
+xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
+ylabel('Azim. precision $\sin(\theta_d)\sigma_{\phi_d}\ (^{\circ})$','Interpreter','latex')
+fontsize(gcf,scale=1.8)
+
+copygraphics(gcf,'ContentType','vector')
+
+% CRLB pola
+
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,CRLBpola_Vortex(7,:),Xl,CRLBpola_CHIDO(7,:), ...
+    Xl,CRLBpola_raMVR(7,:),Xl,CRLBpola_4EP(7,:),"LineWidth",1.5)
+xlim([1,101])
+xticks(cosd([90,75,60,45,30,15,1])*100+1)
+xticklabels({'90','75','60','45','30','15  ','1'})
+ylim([0,8])
+grid on
+xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
+ylabel('Polar precision $\sigma_{\theta_d}\ (^{\circ})$','Interpreter','latex')
+fontsize(gcf,scale=1.8)
+
+copygraphics(gcf,'ContentType','vector')
+
+% CRLB delta
+
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,CRLBpola_Vortex(9,:),Xl,CRLBpola_CHIDO(9,:), ...
+    Xl,CRLBpola_raMVR(9,:),Xl,CRLBpola_4EP(9,:),"LineWidth",1.5)
+xlim([1,101])
+xticks(cosd([90,75,60,45,30,15,1])*100+1)
+xticklabels({'90','75','60','45','30','15  ','1'})
+ylim([0,8])
+grid on
+xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
+ylabel('Angular precision $\bar{\delta}\ (^{\circ})$','Interpreter','latex')
+fontsize(gcf,scale=1.8)
+
+copygraphics(gcf,'ContentType','vector')
+
+% CRLB g2
+figure("Position",[200,200,550,400])
+axes('Position',[0.15, 0.2, 0.75, 0.7])
+plot(Xl,CRLBpola_Vortex(8,:),Xl,CRLBpola_CHIDO(8,:), ...
+    Xl,CRLBpola_raMVR(8,:),Xl,CRLBpola_4EP(8,:),"LineWidth",1.5)
+xlim([1,101])
+xticks(cosd([90,75,60,45,30,15,1])*100+1)
+xticklabels({'90','75','60','45','30','15  ','1'})
+ylim([0,0.1])
+grid on
+xlabel('Polar angle $\theta_d\ (^{\circ})$','Interpreter','latex')
+ylabel('$g_2$ precision $\sigma_{g_2}$','Interpreter','latex')
+fontsize(gcf,scale=1.8)
+
+copygraphics(gcf,'ContentType','vector')
+
+%%
 plot(Xl,CRLBpola_Vortex(7,:),"LineStyle",'--',"Color",[.00 .45 .74],"LineWidth",1.5)
 plot(Xl,CRLBpola_CHIDO(7,:),"LineStyle",'--',"Color",[.85 .33 .10],"LineWidth",1.5)
 plot(Xl,CRLBpola_raMVR(7,:),"LineStyle",'--',"Color",[.93 .69 .13],"LineWidth",1.5)
@@ -338,13 +445,13 @@ p.detection =  "zslice";
 p.Nz = 1;
 p.zl = 0;   
 
-p.polarization = '4EP';
+p.polarization = 'CP';
 p.dipoleType = 'diffusion';
-p.DualObj = false;
+p.DualObj = true;
 p.Vortex = false;
 p.g2 = 0.75;
 p.z0 = 0e-9;    % in focus
-p.Excitation = false;
+p.Excitation = true;
 
 aziml = 0:1:180;
 polal = acosd(0:0.05:0.95);
@@ -354,8 +461,8 @@ for i=1:length(polal)
     for j=1:length(aziml)
         p.pola = polal(i)/180*pi;
         p.azim = aziml(j)/180*pi;
-        [PupilMatrix,dPupilMatrix] = get_pupilMatrix(p);
-        [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix);
+        [PupilMatrix,dPupilMatrix,Energy_norm] = get_pupilMatrix(p);
+        [PSF,dPSF] = get_PSF(p,PupilMatrix,dPupilMatrix,Energy_norm);
         [mu,dmu] = get_mu(p,PSF,dPSF); 
         [CRLBStore(:,i,j),~] = get_CRLB(p,mu,dmu);
     end
@@ -370,47 +477,67 @@ sigx = CRLBStore(6,:,:);
 sigy = CRLBStore(7,:,:);
 a = (sigx.^2+sigy.^2)/2+abs((sigx.^2-sigy.^2)/2);
 b = (sigx.^2+sigy.^2)/2-abs((sigx.^2-sigy.^2)/2);
-CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+% CRLBStore(9,:,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+[~,Eell] = ellipke(1-b./a);
+CRLBStore(9,:,:) = sqrt(2/pi*a).*Eell;
 CRLBStore = squeeze(mean(CRLBStore,2));
 
+% CRLBStoreN = CRLBStore;
+
 %% CRLB w.r.t azimuthal angle: plot one method
-% CRLB x
-figure("Position",[200,200,500,350])
-plot(aziml,(CRLBStore(1,:)+CRLBStore(2,:))/2,'b',"LineWidth",1.5)
+% CRLB x z
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
+plot(aziml,(CRLBStore(1,:)+CRLBStore(2,:))/2,'b',...
+    aziml,CRLBStore(3,:),'r', ...
+    "LineWidth",1.5)
+
+hold on
+plot(aziml,(CRLBStoreN(1,:)+CRLBStoreN(2,:))/2,'b--',...
+    aziml,CRLBStoreN(3,:),'r--', ...
+    "LineWidth",1.5)
+
 xlim([1,180])
 xticks(0:45:180)
 ylim([0 4])
 grid on
-lgd = legend('$\sigma_x$ (nm)');
+lgd = legend('$\sigma_x$ (nm)','$\sigma_z$ (nm)');
 lgd.Interpreter = "latex";
 lgd.Location = "north";
 lgd.Box = "off";
 xlabel('Azimuthal angle $\phi_d\ (^{\circ})$','Interpreter','latex')
-ylabel('Lateral precision','Interpreter','latex')
+ylabel('Localization precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
-% CRLB z
-figure("Position",[200,200,500,350])
-plot(aziml,CRLBStore(3,:),'r',"LineWidth",1.5)
-xlim([1,180])
-xticks(0:45:180)
-ylim([0 20])
-grid on
-lgd = legend('$\sigma_z$ (nm)');
-lgd.Interpreter = "latex";
-lgd.Location = "north";
-lgd.Box = "off";
-xlabel('Azimuthal angle $\phi_d\ (^{\circ})$','Interpreter','latex')
-ylabel('Lateral precision','Interpreter','latex')
-fontsize(gcf,scale=1.8)
+% % CRLB z
+% figure("Position",[200,200,500,350])
+% plot(aziml,CRLBStore(3,:),'r',"LineWidth",1.5)
+% xlim([1,180])
+% xticks(0:45:180)
+% ylim([0 20])
+% grid on
+% lgd = legend('$\sigma_z$ (nm)');
+% lgd.Interpreter = "latex";
+% lgd.Location = "north";
+% lgd.Box = "off";
+% xlabel('Azimuthal angle $\phi_d\ (^{\circ})$','Interpreter','latex')
+% ylabel('Lateral precision','Interpreter','latex')
+% fontsize(gcf,scale=1.8)
+
 % CRLB angle
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(aziml,CRLBStore(6,:),"Color",[.49,.73,.00],"LineWidth",1.5)
 hold on
 plot(aziml,CRLBStore(7,:),"Color",[.00,.63,.95],"LineWidth",1.5)
 plot(aziml,CRLBStore(9,:),"Color",[.49,.18,.56],"LineWidth",1.5)
+
+plot(aziml,CRLBStoreN(6,:),"--","Color",[.49,.73,.00],"LineWidth",1.5)
+plot(aziml,CRLBStoreN(7,:),"--","Color",[.00,.63,.95],"LineWidth",1.5)
+plot(aziml,CRLBStoreN(9,:),"--","Color",[.49,.18,.56],"LineWidth",1.5)
+
 xlim([1,180])
 xticks(0:45:180)
-ylim([0 5])
+ylim([0 10])
 grid on
 lgd = legend('$\sin(\theta_d)\sigma_{\phi_d}\ (^{\circ})$', ...
     '$\sigma_{\theta_d}\ (^{\circ})$','$\bar{\delta}\ (^{\circ})$');
@@ -421,11 +548,18 @@ xlabel('Azimuthal angle $\phi_d\ (^{\circ})$','Interpreter','latex')
 ylabel('Angular precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 %CRLB g2
-figure("Position",[200,200,500,350])
+figure("Position",[200,200,400,400])
+axes('Position',[0.2, 0.2, 0.7, 0.7])
 plot(aziml,CRLBStore(8,:),"Color",[1 0.5 0],"LineWidth",1.5)
+
+hold on 
+plot(aziml,CRLBStoreN(8,:),"--","Color",[1 0.5 0],"LineWidth",1.5)
+
 xlim([1,180])
 xticks(0:45:180)
-ylim([0 0.06])
+ylim([0,0.1])
+yticks([0,0.05,0.1])
+yticklabels(["0"," ","0.1"])
 grid on
 lgd = legend('$\sigma_{g_2}$');
 lgd.Interpreter = "latex";
@@ -435,6 +569,7 @@ xlabel('Azimuthal angle $\phi_d\ (^{\circ})$','Interpreter','latex')
 ylabel('$g_2$ precision','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
+copygraphics(gcf,'ContentType','vector')
 %% CRLB w.r.t g2: sweeping
 p.detection =  "zslice"; 
 p.Nz = 1;

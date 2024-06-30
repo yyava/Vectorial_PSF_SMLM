@@ -5,10 +5,10 @@ close all
 
 p = set_parameters;
 
-p.Ncfg = 10;
+p.Ncfg = 10000;
 
 p.polarization = 'CP';
-% p.dipoleType = 'fixed';
+p.dipoleType = 'fixed';
 p.DualObj = false;
 p.Excitation = false;
 
@@ -30,7 +30,7 @@ for ii = 1:p.Ncfg
     % true parameters
     % dx = (1-2*rand)*p.Dx;
     % dy = (1-2*rand)*p.Dx;
-    % dz = (1-2*rand)*100e-9;
+    % dz = (1-2*rand)*400e-9;
     % dazim = rand*2*pi;  % 0~2pi
     % dpola = acos(rand); % 0~pi/2
     % dg2 = 0.8+(1-2*rand)*0.2;
@@ -39,7 +39,7 @@ for ii = 1:p.Ncfg
     dz = 0e-9;
     Nph = 4000;
     Nbg = 12;
-    dazim = (30)/180*pi;  % 0~2pi
+    dazim = (45)/180*pi;  % 0~2pi
     dpola = 45.0/180*pi; % 0~pi/2
     dg2 = 0.8;
 
@@ -53,16 +53,23 @@ end
 % add noise
 allspots = 1e12*imnoise(allmu*1e-12,'poisson');
 
-%%%% calculate CRLB for fixed parameters
-% [CRLB,~] = get_CRLB(p,allmu(:,:,:,:,1),alldmu(:,:,:,:,:,1));
-% CRLB(6:7,:) = CRLB(6:7,:)/pi*180;
-% CRLB(1:3,:) = CRLB(1:3,:)*1e9;
-% sigx = sin(dpola)*CRLB(6,:);
-% sigy = CRLB(7,:);
-% a = (sigx.^2+sigy.^2)/2+abs((sigx.^2-sigy.^2)/2);
-% b = (sigx.^2+sigy.^2)/2-abs((sigx.^2-sigy.^2)/2);
-% CRLB(9,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+%% %% calculate CRLB for each set of parameter
+CRLBstore = zeros(p.Np,p.Ncfg);
+for i = 1:p.Ncfg
+    [CRLBstore(:,i),~] = get_CRLB(p,allmu(:,:,:,:,i),alldmu(:,:,:,:,:,i));
+end
 
+CRLBstore(6:7,:) = CRLBstore(6:7,:)/pi*180;
+CRLBstore(1:3,:) = CRLBstore(1:3,:)*1e9;  
+sigx = sin(dpola)*CRLBstore(6,:);
+sigy = CRLBstore(7,:);
+a = (sigx.^2+sigy.^2)/2+abs((sigx.^2-sigy.^2)/2);
+b = (sigx.^2+sigy.^2)/2-abs((sigx.^2-sigy.^2)/2);
+% CRLB(9,:) = sqrt(pi)/8*a.*b.*(31*a.^2+31*b.^2+2*a.*b)./(a+b).^3.5;
+[~,Eell] = ellipke(1-b./a);
+CRLBstore(9,:) = sqrt(2/pi*a).*Eell;
+
+CRLBmean = mean(CRLBstore,2);
 %% MLE fitting routine
 Theta0 = initValues(allspots,p);
 % Theta0 = object;
@@ -107,7 +114,7 @@ DThetaStd = std(DTheta,0,2);
 %% Plot results
 %%%% 3D localization result
 figure("Position",[100,100,600,600])
-S = 5;
+S = 3;
 C = DTheta(3,:);
 scatter3(DTheta(1,:),DTheta(2,:),DTheta(3,:),S,C,"filled")
 hold on
@@ -124,72 +131,106 @@ zlabel("$\Delta z$ (nm)",'Interpreter','latex')
 fontsize(gcf,scale=1.8)
 % title("z0=50 nm, \phi=90°, \theta=80°")
 
+copygraphics(gcf,'ContentType','vector')
+
+%%% 2D localization result
+figure("Position",[100,100,500,500])
+S = 3;
+scatter(DTheta(1,:),DTheta(2,:),S,'k',"filled")
+hold on
+rectangle('Position', [DThetaMean(1)-DThetaStd(1),DThetaMean(2)-DThetaStd(2),2*DThetaStd(1),2*DThetaStd(2)], 'Curvature', [1 1],'EdgeColor', 'r');
+axis equal
+grid on
+box on
+xlim([-10,10])
+ylim([-10,10])
+xlabel("$\Delta x$ (nm)",'Interpreter','latex')
+ylabel("$\Delta y$ (nm)",'Interpreter','latex')
+fontsize(gcf,scale=1.8)
+
 %% Angular deviation
-figure("Position",[200,200,500,400])
-% histogram(DTheta(9,:),30,Normalization="pdf",BinLimits=[0,9])
-histogram(DTheta(9,:),50,BinLimits=[0,10])
+% figure("Position",[200,200,350,350])
+% axes('Position',[0.25, 0.2, 0.7, 0.75])
+% figure("Position",[200,200,350,350])
+% axes('Position',[0.25, 0.2, 0.7, 0.75])
+figure()
+histogram(DTheta(9,:),30,Normalization="pdf",BinLimits=[0,6])
+% histogram(DTheta(9,:),50,BinLimits=[0,10])
 hold on 
-plot([DThetaMean(9),DThetaMean(9)],[0,300],'r',"LineWidth",1.5)
-xlim([0 10])
-xticks(0:2:10)
+t1=plot([DThetaMean(9),DThetaMean(9)],[0,0.6],'b',"LineWidth",2,"DisplayName","Simulation");
+plot([CRLBmean(9),CRLBmean(9)],[0,0.6],'r--',"LineWidth",2)
+xlim([0 6])
+xticks(0:1:6)
 grid on
 % ylim([0,0.35])
-% t = 0:0.01:5;
+t = 0:0.01:6;
+a=a(1);b=b(1);
+Gd = t/sqrt(a*b).*exp(-t.^2/4*(1/a+1/b)).*besseli(0,t.^2/4*(1/b-1/a));
 % Gd = t/a/b.*exp(-t.^2/4*(1/a^2+1/b^2)).*(1+t.^4/64*(1/a^2-1/b^2)^2);
-% plot(t,Gd,LineWidth=1.5)
+t2=plot(t,Gd,'r',LineWidth=2,DisplayName="Theory");
+legend([t1,t2])
 xlabel("$\delta (^\circ)$",'Interpreter','latex')
-ylabel('Count','Interpreter','latex')
+ylabel('Probability density','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
 %% g2
-figure("Position",[200,200,500,400])
-histogram(DTheta(8,:),41,BinLimits=[-0.2,0.2],FaceColor=[.85,.33,.10])
+t = -0.2:0.001:0.2;
+ft = normpdf(t,DThetaMean(8),DThetaStd(8));
+
+figure("Position",[200,200,350,350])
+axes('Position',[0.25, 0.2, 0.7, 0.75])
+histogram(DTheta(8,:),41,BinLimits=[-0.2,0.2],Normalization="pdf",FaceColor=[.85,.33,.10])
 hold on
-plot([DThetaMean(8),DThetaMean(8)],[0,500],'r',"LineWidth",1.5)
+plot(t,ft,'k',"LineWidth",1.5)
+plot([DThetaMean(8),DThetaMean(8)],[0,15],'r',"LineWidth",1.5)
 xlim([-0.2,0.2])
+ylim([0,10])
 grid on
 xlabel("$\Delta g_2$",'Interpreter','latex')
-ylabel('Count','Interpreter','latex')
+ylabel('Probability density','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 
 %% x
-t = -15:0.1:15;
+t = -10:0.1:10;
 ft = normpdf(t,DThetaMean(1),DThetaStd(1));
-figure("Position",[200,200,500,400])
-histogram(DTheta(1,:),41,Normalization="pdf",BinLimits=[-15,15],FaceColor=[.49,.73,.00])
+figure("Position",[200,200,350,350])
+axes('Position',[0.25, 0.2, 0.7, 0.75])
+histogram(DTheta(1,:),41,Normalization="pdf",BinLimits=[-10,10],FaceColor=[.49,.73,.00])
 hold on
 plot(t,ft,'k',"LineWidth",1.5)
 plot([DThetaMean(1),DThetaMean(1)],[0,1],'r',"LineWidth",1.5)
-xlim([-15,15])
-ylim([0,0.18])
+xlim([-10,10])
+ylim([0,0.3])
 grid on
 xlabel("$\Delta x$ (nm)",'Interpreter','latex')
 ylabel('Probability density','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 %% y
 ft = normpdf(t,DThetaMean(2),DThetaStd(2));
-figure("Position",[200,200,500,400])
-histogram(DTheta(2,:),41,Normalization="pdf",BinLimits=[-15,15],FaceColor=[.00,.63,.95])
+figure("Position",[200,200,350,350])
+axes('Position',[0.25, 0.2, 0.7, 0.75])
+histogram(DTheta(2,:),41,Normalization="pdf",BinLimits=[-10,10],FaceColor=[.00,.63,.95])
 hold on
 plot(t,ft,'k',"LineWidth",1.5)
 plot([DThetaMean(2),DThetaMean(2)],[0,1],'r',"LineWidth",1.5)
-xlim([-15,15])
-ylim([0,0.18])
+xlim([-10,10])
+ylim([0,0.3])
 grid on
 xlabel("$\Delta y$ (nm)",'Interpreter','latex')
 ylabel('Probability density','Interpreter','latex')
 fontsize(gcf,scale=1.8)
 %% z
-t = -15:0.1:15;
-len = 15;
+len = 4;
+t = -len:0.1:len;
 ft = normpdf(t,DThetaMean(3),DThetaStd(3));
-figure("Position",[200,200,500,400])
+figure("Position",[200,200,350,350])
+axes('Position',[0.25, 0.2, 0.7, 0.75])
 histogram(DTheta(3,:),41,Normalization="pdf",BinLimits=[-len,len],FaceColor=[.49,.18,.56])
 hold on
 plot(t,ft,'k',"LineWidth",1.5)
 plot([DThetaMean(3),DThetaMean(3)],[0,1],'r',"LineWidth",1.5)
 xlim([-len,len])
-ylim([0,0.25])
+ylim([0,0.8])
 grid on
 xlabel("$\Delta z$ (nm)",'Interpreter','latex')
 ylabel('Probability density','Interpreter','latex')

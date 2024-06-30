@@ -29,6 +29,11 @@ if strcmp(p.detection,"zslice")
         FisherM(jj,ii) = FisherM(ii,jj);
     end
     end
+    if ~contains(p.fitModel,'xyz')
+        % 2D localization
+        FisherM(3,:) = 0; 
+        FisherM(:,3) = 0;
+    end
     CRLB = sqrt(diag(inv(FisherM(:,:)+keps*eye(Np))));
 
 elseif strcmp(p.detection,"zstack")
@@ -40,6 +45,11 @@ elseif strcmp(p.detection,"zstack")
         end
     end
     CRLB = zeros(Np,Nz);
+    if ~contains(p.fitModel,'xyz')
+        % 2D localization
+        FisherM(3,:,:) = 0; 
+        FisherM(:,3,:) = 0;
+    end
     for iz = 1:Nz
         CRLB(:,iz) = sqrt(diag(inv(FisherM(:,:,iz)+keps*eye(Np))));
     end
